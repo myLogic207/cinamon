@@ -3,9 +3,10 @@ package patchssh
 import (
 	"context"
 	"fmt"
-	log "gotils/logger"
 	"io"
 	"time"
+
+	log "github.com/myLogic207/gotils/logger"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"

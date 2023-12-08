@@ -2,9 +2,10 @@ package patchssh
 
 import (
 	"context"
-	"gotils/config"
 	"testing"
 	"time"
+
+	"github.com/myLogic207/gotils/config"
 )
 
 func TestNewServerTCPSocket(t *testing.T) {

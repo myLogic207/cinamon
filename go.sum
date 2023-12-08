@@ -1,3 +1,5 @@
+github.com/myLogic207/gotils v0.0.0-20231208201604-af22241badbf h1:Lw4B23kokV0RoX5uOP5CZtrK/lYo8AF+8V9zNlaLOWg=
+github.com/myLogic207/gotils v0.0.0-20231208201604-af22241badbf/go.mod h1:hmahmtLKcpT3TLmeoMQ0zJ2iyRp5jZgmX/OVkJt1/js=
 golang.org/x/crypto v0.16.0 h1:mMMrFzRSCF0GvB7Ne27XVtVAaXLrPmgPC7/v0tkwHaY=
 golang.org/x/crypto v0.16.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
 golang.org/x/sys v0.15.0 h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=

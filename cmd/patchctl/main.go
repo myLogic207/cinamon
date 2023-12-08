@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"gotils/config"
-	log "gotils/logger"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	ssh "github.com/myLogic207/PaT-CH/v2/pkg/patchssh"
+	"github.com/myLogic207/gotils/config"
+	log "github.com/myLogic207/gotils/logger"
+
+	ssh "github.com/myLogic207/cinamon/pkg/patchssh"
 )
 
 const (

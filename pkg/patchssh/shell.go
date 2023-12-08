@@ -3,8 +3,9 @@ package patchssh
 import (
 	"context"
 	"errors"
-	log "gotils/logger"
 	"strings"
+
+	log "github.com/myLogic207/gotils/logger"
 )
 
 var (

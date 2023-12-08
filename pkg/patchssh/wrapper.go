@@ -3,10 +3,11 @@ package patchssh
 import (
 	"context"
 	"errors"
-	log "gotils/logger"
-	"gotils/workers"
 	"io"
 	"net"
+
+	log "github.com/myLogic207/gotils/logger"
+	"github.com/myLogic207/gotils/workers"
 
 	"golang.org/x/crypto/ssh"
 )

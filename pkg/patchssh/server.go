@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gotils/config"
-	log "gotils/logger"
-	"gotils/workers"
 	"net"
+
+	"github.com/myLogic207/gotils/config"
+	log "github.com/myLogic207/gotils/logger"
+	"github.com/myLogic207/gotils/workers"
 
 	"golang.org/x/crypto/ssh"
 )
