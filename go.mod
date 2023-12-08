@@ -1,4 +1,4 @@
-module github.com/myLogic207/cinamon
+module github.com/myLogic207/cinnamon
 
 go 1.21.4
 
