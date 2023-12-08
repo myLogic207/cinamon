@@ -1,4 +1,4 @@
-module github.com/myLogic207/PaT-CH/v2
+module github.com/myLogic207/cinamon
 
 go 1.21.4
 
