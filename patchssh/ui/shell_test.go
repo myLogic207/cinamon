@@ -4,23 +4,26 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/myLogic207/gotils/config"
+	log "github.com/myLogic207/gotils/logger"
 )
 
 var (
 	TESTSHELL *ShellWrapper = nil
 )
 
-// func TestMain(m *testing.M) {
-// 	testlogger, err := log.NewLogger(config.NewConfigWithInitialValues(map[string]interface{}{
-// 		"PREFIX":       "TEST",
-// 		"PREFIXLENGTH": 8,
-// 	}))
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	TESTSHELL = NewShellWrapper(testlogger)
-// 	m.Run()
-// }
+func TestMain(m *testing.M) {
+	testlogger, err := log.NewLogger(config.NewWithInitialValues(map[string]interface{}{
+		"PREFIX":       "TEST",
+		"PREFIXLENGTH": 8,
+	}))
+	if err != nil {
+		panic(err)
+	}
+	TESTSHELL = NewShellWrapper(testlogger)
+	m.Run()
+}
 
 func TestStdout(t *testing.T) {
 	// Test that creating a new key works without errors

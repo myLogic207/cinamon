@@ -92,7 +92,7 @@ func TestPublicKeyCallback(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT keystring FROM sshkeys WHERE identifier = ?").WithArgs("known").WillReturnError(sql.ErrNoRows)
-	mock.ExpectRollback()
+	mock.ExpectCommit()
 	// test before add aka unknown key
 	if perms, err := manager.PublicKeyCallback(TestConnMetadata{user: "known"}, key); err == nil {
 		t.Errorf("Expected error of type ErrAuthFailedReason, got %v", err)
@@ -121,7 +121,7 @@ func TestPublicKeyCallback(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT keystring FROM sshkeys WHERE identifier = ?").WithArgs("unknown").WillReturnError(sql.ErrNoRows)
-	mock.ExpectRollback()
+	mock.ExpectCommit()
 	// Test unknown user
 	_, err = manager.PublicKeyCallback(TestConnMetadata{user: "unknown"}, key)
 	if err == nil || !errors.Is(err, ErrAuthFailed) {
