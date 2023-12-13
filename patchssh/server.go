@@ -1,11 +1,18 @@
 package patchssh
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
 
+	"github.com/myLogic207/cinnamon/internal/models"
+	"github.com/myLogic207/cinnamon/patchssh/auth"
+	"github.com/myLogic207/cinnamon/patchssh/ui"
 	"github.com/myLogic207/gotils/config"
 	log "github.com/myLogic207/gotils/logger"
 	"github.com/myLogic207/gotils/workers"
@@ -13,35 +20,32 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var (
-	ErrWorkerPoolInitialized = errors.New("worker pool already initialized")
-	defaultServerConfig      = map[string]interface{}{
-		"LOGGER": map[string]interface{}{
-			"PREFIX":       "SOCKET-SERVER",
-			"PREFIXLENGTH": 20,
-		},
-		"ADDRESS":       "127.0.0.1",
-		"PORT":          8080,
-		"WORKERS":       100,
-		"TIMEOUT":       "5s",
-		"KEYFILE":       "id_ed25519",
-		"KNOWNHOSTFILE": "known_clients",
-		"MAXAUTHTRIES":  3,
-		"SERVERVERSION": "SSH-2.0-patchssh",
-	}
-)
+var defaultServerConfig = map[string]interface{}{
+	"LOGGER": map[string]interface{}{
+		"PREFIX":       "SOCKET-SERVER",
+		"PREFIXLENGTH": 20,
+	},
+	"ADDRESS": "127.0.0.1",
+	"PORT":    8080,
+	"WORKERS": 100,
+	"TIMEOUT": "5s",
+	// if key is not present, default key is used or new key is generated
+	// "HOSTKEY":           "",
+	"MAXAUTHTRIES":  3,
+	"SERVERVERSION": "SSH-2.0-patchssh",
+}
 
 type SocketServer struct {
 	logger       log.Logger
 	config       config.Config
 	sshConfig    *ssh.ServerConfig
-	loginManager *AuthManager
+	loginManager *auth.AuthManager
 	listener     net.Listener
 	workerPool   *workers.WorkerPool
 }
 
-func NewServer(serverOptions config.Config) (*SocketServer, error) {
-	cnf := config.NewConfigWithInitialValues(defaultServerConfig)
+func NewServer(serverOptions config.Config, keyDB models.KeyDB) (*SocketServer, error) {
+	cnf := config.NewWithInitialValues(defaultServerConfig)
 	if err := cnf.Merge(serverOptions, true); err != nil {
 		return nil, err
 	}
@@ -49,51 +53,96 @@ func NewServer(serverOptions config.Config) (*SocketServer, error) {
 		return nil, err
 	}
 
-	server := &SocketServer{
-		config: cnf,
+	if keyDB == nil {
+		return nil, ErrMissingDBConn
 	}
 
 	loggerConfig, _ := cnf.GetConfig("LOGGER")
-	if logger, err := log.NewLogger(loggerConfig); err != nil {
-		return nil, err
-	} else {
-		server.logger = logger
-	}
-	if err := server.loadSSHConfig(); err != nil {
+	logger, err := log.NewLogger(loggerConfig)
+	if err != nil {
 		return nil, err
 	}
 
-	server.logger.Debug(nil, "Server Created")
+	server := &SocketServer{
+		config:       cnf,
+		logger:       logger,
+		loginManager: auth.NewAuthManager(keyDB),
+	}
+
 	return server, nil
 }
 
-func (s *SocketServer) loadSSHConfig() error {
-	keyFile, _ := s.config.GetString("KEYFILE")
-	hostFile, _ := s.config.GetString("KNOWNHOSTFILE")
+func (s *SocketServer) ensureHostKey(ctx context.Context) ([]byte, error) {
+	// get key from config
+	pemBytes := []byte{}
+	configSet := false
+	if keyString, err := s.config.GetString("HOSTKEY"); err == nil {
+		configSet = true
+		rawPemBytes, _ := pem.Decode([]byte(keyString))
+		if rawPemBytes != nil {
+			pemBytes = pem.EncodeToMemory(rawPemBytes)
+		}
+	} else {
+		// key not set in config, generate new key
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		pemKey, err := ssh.MarshalPrivateKey(privateKey, "")
+		if err != nil {
+			return nil, err
+		}
+		pemBytes = pem.EncodeToMemory(pemKey)
+	}
+
+	// get current key from db
+	dbKey, err := s.loginManager.GetHostKey(ctx)
+	if err != nil && !errors.Is(err, models.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	if errors.Is(err, models.ErrKeyNotFound) || (configSet && err == nil && !bytes.Equal(dbKey, pemBytes)) {
+		// key not set in db write key to db
+		// or key in db, and not equal with config
+		if err := s.loginManager.SetHostKey(ctx, pemBytes); err != nil {
+			return nil, err
+		}
+	}
+
+	return pemBytes, nil
+}
+
+func (s *SocketServer) loadSSHConfig(ctx context.Context) error {
 	maxTries, _ := s.config.GetInt("MAXAUTHTRIES")
 	version, _ := s.config.GetString("SERVERVERSION")
-	var err error
-	s.loginManager, err = NewAuthManager(keyFile, hostFile)
-	if err != nil {
-		return err
-	}
 	sshConfig := &ssh.ServerConfig{
-		NoClientAuth:                true,
-		MaxAuthTries:                maxTries,
-		ServerVersion:               version,
-		AuthLogCallback:             s.AuthLogCallback,
-		PublicKeyCallback:           s.loginManager.PublicKeyCallback,
-		NoClientAuthCallback:        s.loginManager.NoAuthCallback,
-		PasswordCallback:            s.loginManager.PasswordAuth,
-		KeyboardInteractiveCallback: s.loginManager.KeyboardInteractiveAuth,
-		BannerCallback:              s.loginManager.Banner,
+		NoClientAuth:         false,
+		MaxAuthTries:         maxTries,
+		ServerVersion:        version,
+		AuthLogCallback:      s.AuthLogCallback,
+		PublicKeyCallback:    s.loginManager.PublicKeyCallback,
+		NoClientAuthCallback: s.loginManager.NoAuthCallback,
+		PasswordCallback:     s.loginManager.PasswordAuth,
+		// KeyboardInteractiveCallback: s.loginManager.KeyboardInteractiveAuth,
+		BannerCallback: ui.Banner,
 		PublicKeyAuthAlgorithms: []string{
 			ssh.KeyAlgoED25519,
 			ssh.KeyAlgoRSA,
 		},
 	}
+	localKey, err := s.ensureHostKey(ctx)
+	if err != nil {
+		s.logger.Error(ctx, err.Error())
+		return err
+	}
+
+	signer, err := ssh.ParsePrivateKey(localKey)
+	if err != nil {
+		return err
+	}
+
+	sshConfig.AddHostKey(signer)
 	s.sshConfig = sshConfig
-	s.sshConfig.AddHostKey(s.loginManager.signer)
 	return nil
 }
 
@@ -126,7 +175,7 @@ func (s *SocketServer) initListener(ctx context.Context) error {
 
 func (s *SocketServer) initWorkerPool(ctx context.Context) error {
 	if s.workerPool != nil {
-		return ErrWorkerPoolInitialized
+		return ErrWorkerPoolAlreadyInit
 	}
 	s.logger.Debug(ctx, "Initializing worker pool")
 	poolSize, _ := s.config.GetInt("WORKERS")
@@ -149,17 +198,22 @@ func (s *SocketServer) initWorkerPool(ctx context.Context) error {
 
 // serve starts accepting connections on the socket, is non blocking, reports startup errors directly and is non blocking
 func (s *SocketServer) Serve(ctx context.Context) error {
-	subCtx, cancel := context.WithCancelCause(ctx)
-	if err := s.initWorkerPool(subCtx); err != nil {
-		return err
+	if err := s.loadSSHConfig(ctx); err != nil {
+		s.logger.Error(ctx, err.Error())
+		return ErrSSHConfigReason{err}
 	}
-	if err := s.initListener(subCtx); err != nil {
+
+	if err := s.initWorkerPool(ctx); err != nil {
+		return ErrInitWorkerPoolReason{err}
+	}
+	if err := s.initListener(ctx); err != nil {
 		return err
 	}
 
 	connChan := make(chan net.Conn)
-	go s.handleConnectionsLoop(subCtx, connChan)
+	go s.handleConnectionsLoop(ctx, connChan)
 	// handle errors and context cancel
+	quitChan := make(chan error)
 	go func() {
 		<-ctx.Done()
 		s.logger.Info(ctx, "Server stopping")
@@ -167,8 +221,10 @@ func (s *SocketServer) Serve(ctx context.Context) error {
 		if err != nil && err != context.Canceled {
 			s.logger.Error(ctx, "reason: %s", err.Error())
 		}
-		cancel(err)
 		if err := s.listener.Close(); err != nil {
+			s.logger.Error(ctx, err.Error())
+		}
+		if err := <-quitChan; err != nil && !errors.Is(err, net.ErrClosed) {
 			s.logger.Error(ctx, err.Error())
 		}
 		s.workerPool = nil
@@ -179,7 +235,8 @@ func (s *SocketServer) Serve(ctx context.Context) error {
 			conn, err := s.listener.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
 				s.logger.Error(ctx, err.Error())
-				cancel(err)
+				quitChan <- err
+				return
 			} else if errors.Is(err, net.ErrClosed) {
 				s.logger.Debug(ctx, "Listener closed")
 				return

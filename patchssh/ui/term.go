@@ -1,4 +1,4 @@
-package patchssh
+package ui
 
 import (
 	"context"

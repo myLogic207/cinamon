@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/myLogic207/cinnamon/patchssh/ui"
 	log "github.com/myLogic207/gotils/logger"
 	"github.com/myLogic207/gotils/workers"
 
@@ -44,7 +45,7 @@ type connTaskWrapper struct {
 	SubsystemHandlers map[string]SubsystemHandler
 
 	// per default users need a shell after a shell request
-	ShellHandler UserShell
+	ShellHandler ui.UserShell
 }
 
 func NewConnTaskWrapper(conn net.Conn, sshConfig *ssh.ServerConfig, logger log.Logger) *connTaskWrapper {
@@ -147,7 +148,7 @@ func (cw *connTaskWrapper) DefaultRequestHandler(ctx context.Context, channel ss
 
 func (cw *connTaskWrapper) ShellRequestHandler(ctx context.Context, channel ssh.Channel, request *ssh.Request) {
 	// prepare shell wrapper
-	cw.ShellHandler = NewShellWrapper(cw.logger)
+	cw.ShellHandler = ui.NewShellWrapper(cw.logger)
 	request.Reply(true, nil)
 }
 
@@ -158,7 +159,7 @@ func (cw *connTaskWrapper) TerminalRequestHandler(ctx context.Context, channel s
 		return
 	}
 	// prepare terminal wrapper
-	terminal := NewTerminalWrapper(cw.logger, channel, cw.ShellHandler)
+	terminal := ui.NewTerminalWrapper(cw.logger, channel, cw.ShellHandler)
 	go terminal.Do(ctx)
 	if request.WantReply {
 		request.Reply(true, nil)
