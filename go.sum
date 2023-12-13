@@ -46,8 +46,6 @@ github.com/mattn/go-sqlite3 v1.14.18 h1:JL0eqdCOq6DJVNPSvArO/bIV9/P7fbGrV00LZHc+
 github.com/mattn/go-sqlite3 v1.14.18/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
 github.com/microsoft/go-mssqldb v1.6.0 h1:mM3gYdVwEPFrlg/Dvr2DNVEgYFG7L42l+dGc67NNNpc=
 github.com/microsoft/go-mssqldb v1.6.0/go.mod h1:00mDtPbeQCRGC1HwOOR5K/gr30P1NcEG0vx6Kbv2aJU=
-github.com/myLogic207/gotils v0.1.3 h1:CfLteFYrLNYRetu+NBaaAd3PpBxwUNucaZKtv9A1jBc=
-github.com/myLogic207/gotils v0.1.3/go.mod h1:hmahmtLKcpT3TLmeoMQ0zJ2iyRp5jZgmX/OVkJt1/js=
 github.com/myLogic207/gotils v0.1.4 h1:PggZ78brB9+M3zCd2pIyVmHqQ9jMuMhz6pRS44gKGgY=
 github.com/myLogic207/gotils v0.1.4/go.mod h1:hmahmtLKcpT3TLmeoMQ0zJ2iyRp5jZgmX/OVkJt1/js=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 h1:KoWmjvw+nsYOo29YJK9vDA65RGE3NrOnUtO7a+RF9HU=
