@@ -32,7 +32,7 @@ var (
 )
 
 type SocketServer struct {
-	logger       *log.Logger
+	logger       log.Logger
 	config       config.Config
 	sshConfig    *ssh.ServerConfig
 	loginManager *AuthManager
@@ -63,7 +63,7 @@ func NewServer(serverOptions config.Config) (*SocketServer, error) {
 		return nil, err
 	}
 
-	server.logger.Debug("Server Created")
+	server.logger.Debug(nil, "Server Created")
 	return server, nil
 }
 
@@ -99,9 +99,9 @@ func (s *SocketServer) loadSSHConfig() error {
 
 func (s *SocketServer) AuthLogCallback(conn ssh.ConnMetadata, method string, err error) {
 	if err == nil {
-		s.logger.Info("Connection from '%s' using '%s'", conn.RemoteAddr().String(), method)
+		s.logger.Info(context.Background(), "Connection from '%s' using '%s'", conn.RemoteAddr().String(), method)
 	} else {
-		s.logger.Error("Connection error from '%s' using '%s' auth: %s", conn.RemoteAddr().String(), method, err.Error())
+		s.logger.Error(context.Background(), "Connection error from '%s' using '%s' auth: %s", conn.RemoteAddr().String(), method, err.Error())
 	}
 }
 
@@ -118,7 +118,7 @@ func (s *SocketServer) initListener(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	s.logger.Info("Listening on %s", address)
+	s.logger.Info(ctx, "Listening on %s", address)
 	s.listener = listener
 	return nil
 
@@ -128,7 +128,7 @@ func (s *SocketServer) initWorkerPool(ctx context.Context) error {
 	if s.workerPool != nil {
 		return ErrWorkerPoolInitialized
 	}
-	s.logger.Debug("Initializing worker pool")
+	s.logger.Debug(ctx, "Initializing worker pool")
 	poolSize, _ := s.config.GetInt("WORKERS")
 	poolLoggerConfig, _ := s.config.GetConfig("LOGGER")
 	if err := poolLoggerConfig.Set("PREFIX", "SERVER-WORKERPOOL", true); err != nil {
@@ -143,7 +143,7 @@ func (s *SocketServer) initWorkerPool(ctx context.Context) error {
 		return err
 	}
 	s.workerPool = pool
-	s.logger.Info("Worker pool initialized")
+	s.logger.Info(ctx, "Worker pool initialized")
 	return nil
 }
 
@@ -162,26 +162,26 @@ func (s *SocketServer) Serve(ctx context.Context) error {
 	// handle errors and context cancel
 	go func() {
 		<-ctx.Done()
-		s.logger.Info("Server stopping")
+		s.logger.Info(ctx, "Server stopping")
 		err := ctx.Err()
 		if err != nil && err != context.Canceled {
-			s.logger.Error("reason: %s", err.Error())
+			s.logger.Error(ctx, "reason: %s", err.Error())
 		}
 		cancel(err)
 		if err := s.listener.Close(); err != nil {
-			s.logger.Error(err.Error())
+			s.logger.Error(ctx, err.Error())
 		}
 		s.workerPool = nil
 	}()
-	s.logger.Info("Server started")
+	s.logger.Info(ctx, "Server started")
 	go func() {
 		for {
 			conn, err := s.listener.Accept()
 			if err != nil && !errors.Is(err, net.ErrClosed) {
-				s.logger.Error(err.Error())
+				s.logger.Error(ctx, err.Error())
 				cancel(err)
 			} else if errors.Is(err, net.ErrClosed) {
-				s.logger.Debug("Listener closed")
+				s.logger.Debug(ctx, "Listener closed")
 				return
 			}
 			connChan <- conn
@@ -197,10 +197,10 @@ func (s *SocketServer) handleConnectionsLoop(ctx context.Context, connChan <-cha
 		case <-ctx.Done():
 			return
 		case conn := <-connChan:
-			s.logger.Debug("New connection from %s", conn.RemoteAddr().String())
+			s.logger.Debug(ctx, "New connection from %s", conn.RemoteAddr().String())
 			wrapper := NewConnTaskWrapper(conn, s.sshConfig, s.logger)
-			s.workerPool.Add(wrapper)
-			s.logger.Debug("Connection added to worker pool")
+			s.workerPool.Add(ctx, wrapper)
+			s.logger.Debug(ctx, "Connection added to worker pool")
 		}
 	}
 }

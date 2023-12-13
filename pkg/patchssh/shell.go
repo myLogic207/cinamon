@@ -13,11 +13,11 @@ var (
 )
 
 type ShellWrapper struct {
-	logger        *log.Logger
+	logger        log.Logger
 	knownCommands map[string]func(context.Context, []string) ([]byte, error)
 }
 
-func NewShellWrapper(logger *log.Logger) *ShellWrapper {
+func NewShellWrapper(logger log.Logger) *ShellWrapper {
 	commands := map[string]func(context.Context, []string) ([]byte, error){
 		"echo": echo,
 	}
@@ -29,7 +29,7 @@ func NewShellWrapper(logger *log.Logger) *ShellWrapper {
 
 func (sw *ShellWrapper) Execute(ctx context.Context, command string) ([]byte, error) {
 	// check if command is known
-	sw.logger.Debug("Executing command: %s", command)
+	sw.logger.Debug(ctx, "Executing command: %s", command)
 	parts := strings.Split(command, " ")
 	if cmd, ok := sw.knownCommands[parts[0]]; ok {
 		return cmd(ctx, parts[1:])

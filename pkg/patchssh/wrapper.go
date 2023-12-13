@@ -26,7 +26,7 @@ type SubsystemHandler func(ctx context.Context, subsystem string) error
 
 type connTaskWrapper struct {
 	workers.Task
-	logger    *log.Logger
+	logger    log.Logger
 	sshConfig *ssh.ServerConfig
 	conn      net.Conn
 	// ChannelHandlers allow overriding the built-in session handlers or provide
@@ -47,7 +47,7 @@ type connTaskWrapper struct {
 	ShellHandler UserShell
 }
 
-func NewConnTaskWrapper(conn net.Conn, sshConfig *ssh.ServerConfig, logger *log.Logger) *connTaskWrapper {
+func NewConnTaskWrapper(conn net.Conn, sshConfig *ssh.ServerConfig, logger log.Logger) *connTaskWrapper {
 	wrapper := &connTaskWrapper{
 		logger:    logger,
 		conn:      conn,
@@ -64,29 +64,29 @@ func NewConnTaskWrapper(conn net.Conn, sshConfig *ssh.ServerConfig, logger *log.
 	return wrapper
 }
 
-func (cw *connTaskWrapper) OnFinish() {
+func (cw *connTaskWrapper) OnFinish(ctx context.Context) {
 	// workernode exited normally
 	if err := cw.conn.Close(); err != nil {
-		cw.logger.Error(err.Error())
+		cw.logger.Error(ctx, err.Error())
 	}
 }
 
-func (cw *connTaskWrapper) OnError(err error) {
+func (cw *connTaskWrapper) OnError(ctx context.Context, err error) {
 	// workernode exited with error
 	if err := cw.conn.Close(); err != nil {
-		cw.logger.Error(err.Error())
+		cw.logger.Error(ctx, err.Error())
 	}
 }
 
 func (cw *connTaskWrapper) Do(ctx context.Context) error {
 	// handle connection
 	// perform ssh handshake
-	cw.logger.Debug("Performing ssh handshake")
+	cw.logger.Debug(ctx, "Performing ssh handshake")
 	sshConn, chans, reqs, err := ssh.NewServerConn(cw.conn, cw.sshConfig)
 	if err != nil {
 		return err
 	}
-	cw.logger.Debug("Connection from %s established", sshConn.RemoteAddr().String())
+	cw.logger.Debug(ctx, "Connection from %s established", sshConn.RemoteAddr().String())
 	// handle ssh connection
 	// handle ssh channel requests
 	go cw.handleChannels(ctx, chans)
@@ -94,7 +94,7 @@ func (cw *connTaskWrapper) Do(ctx context.Context) error {
 	// handle ssh global requests
 	go ssh.DiscardRequests(reqs)
 
-	cw.logger.Info("Connection %s established", sshConn.RemoteAddr().String())
+	cw.logger.Info(ctx, "Connection %s established", sshConn.RemoteAddr().String())
 	// block until ssh connection is finished
 	if err := sshConn.Wait(); err != nil && !errors.Is(err, io.EOF) {
 		return err
@@ -139,8 +139,8 @@ func (cw *connTaskWrapper) DefaultRequestHandler(ctx context.Context, channel ss
 	reply := false
 	result := []byte{}
 
-	cw.logger.Debug("Request type: %s", request.Type)
-	cw.logger.Debug("Request payload: %v", request.Payload)
+	cw.logger.Debug(ctx, "Request type: %s", request.Type)
+	cw.logger.Debug(ctx, "Request payload: %v", request.Payload)
 
 	request.Reply(reply, result)
 }

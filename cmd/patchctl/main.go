@@ -11,7 +11,7 @@ import (
 	"github.com/myLogic207/gotils/config"
 	log "github.com/myLogic207/gotils/logger"
 
-	ssh "github.com/myLogic207/cinamon/pkg/patchssh"
+	ssh "github.com/myLogic207/cinnamon/pkg/patchssh"
 )
 
 const (
@@ -116,18 +116,18 @@ func run(ctx context.Context, masterConfig config.Config) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Logger initialized")
+	logger.Info(ctx, "Logger initialized")
 
 	serverConfig, _ := masterConfig.GetConfig("SERVER")
 	server, err := ssh.NewServer(serverConfig)
 	if err != nil {
 		return err
 	}
-	logger.Info("Server initialized")
+	logger.Info(ctx, "Server initialized")
 	if err := server.Serve(ctx); err != nil {
 		return err
 	}
-	logger.Info("Server started")
+	logger.Info(ctx, "Server started")
 
 	// wait for context to be done/run indefinitely
 	<-ctx.Done()
