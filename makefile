@@ -10,7 +10,7 @@ else
 endif
 
 .PHONY: all clean copy_active
-all: clean patchctl copy_active
+all: clean cinserve copy_active
 
 .ONESHELL:
 SHELL := /bin/sh
@@ -25,5 +25,5 @@ SHELL := /bin/sh
 clean:
 	rm -rf ${OUT}/
 
-run: patchctl
-	./${OUT}/patchctl
+run: cinserve
+	./${OUT}/cinserve

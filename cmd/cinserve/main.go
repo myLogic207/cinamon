@@ -11,11 +11,13 @@ import (
 	"github.com/myLogic207/gotils/config"
 	log "github.com/myLogic207/gotils/logger"
 
-	ssh "github.com/myLogic207/cinnamon/pkg/patchssh"
+	"github.com/myLogic207/cinnamon/internal/dbconnect"
+	"github.com/myLogic207/cinnamon/internal/models"
+	ssh "github.com/myLogic207/cinnamon/patchssh"
 )
 
 const (
-	ENV_PREFIX    = "PATCHCTL"
+	ENV_PREFIX    = "CINNAMON"
 	CANCEL_BUFFER = 10
 	END_TIMEOUT   = 1 * time.Second
 )
@@ -24,7 +26,7 @@ var (
 	defaultConfig = map[string]interface{}{
 		"WORKDIR": "work",
 		"LOGGER": map[string]interface{}{
-			"PREFIX":       "PATCH CONTROL",
+			"PREFIX":       "CINNAMON",
 			"PREFIXLENGTH": 20,
 			"LEVEL":        "DEBUG",
 			"WRITERS": map[string]interface{}{
@@ -42,7 +44,7 @@ var (
 			"PORT":    2222,
 			"WORKERS": 3,
 			"LOGGER": map[string]interface{}{
-				"PREFIX": "PATCHCTL-SERVER",
+				"PREFIX": "CINNAMON-SERVER",
 				"WRITERS": map[string]interface{}{
 					"STDOUT": true,
 					"FILE": map[string]interface{}{
@@ -53,6 +55,30 @@ var (
 			},
 			"KEYFILE":       "ssh/server_key",
 			"KNOWNHOSTFILE": "ssh/known_clients",
+		},
+		"DB": map[string]interface{}{
+			"TYPE":     "postgres",
+			"HOST":     "localhost",
+			"PORT":     "5432",
+			"USERNAME": "postgres",
+			"PASSWORD": "postgres",
+			"NAME":     "postgres",
+			"SSLMODE":  "disable",
+			"TIMEZONE": "Europe/Berlin",
+			"POOL":     map[string]interface{}{},
+			"LOGGER": map[string]interface{}{
+				"PREFIX": "CINNAMON-DB",
+				"WRITERS": map[string]interface{}{
+					"STDOUT": true,
+					"FILE": map[string]interface{}{
+						"ACTIVE": true,
+						"FOLDER": "logs",
+					},
+				},
+			},
+			"CACHE": map[string]interface{}{
+				"ACTIVE": false,
+			},
 		},
 	}
 )
@@ -84,7 +110,7 @@ func prep(ctx context.Context) (config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	masterConfig := config.NewConfigWithInitialValues(defaultConfig)
+	masterConfig := config.NewWithInitialValues(defaultConfig)
 	if err := masterConfig.Merge(options, true); err != nil {
 		return nil, err
 	}
@@ -118,8 +144,27 @@ func run(ctx context.Context, masterConfig config.Config) error {
 	}
 	logger.Info(ctx, "Logger initialized")
 
+	dbConfig, _ := masterConfig.GetConfig("DB")
+	db, err := dbconnect.NewDB(dbConfig)
+	if err != nil {
+		return err
+	}
+	logger.Info(ctx, "Database initialized")
+
+	// userDB, err := models.NewUserDB(db)
+	// if err != nil {
+	// 	return err
+	// }
+	// logger.Info(ctx, "UserDB initialized")
+
+	keyDB, err := models.NewKeyDB(db)
+	if err != nil {
+		return err
+	}
+	logger.Info(ctx, "KeyDB initialized")
+
 	serverConfig, _ := masterConfig.GetConfig("SERVER")
-	server, err := ssh.NewServer(serverConfig)
+	server, err := ssh.NewServer(serverConfig, keyDB)
 	if err != nil {
 		return err
 	}
